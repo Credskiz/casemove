@@ -75,7 +75,9 @@
       "target": [
         "nsis"
       ],
-      "sign": "./sign.js"
+      "sign": "./sign.js",
+      "signingHashAlgorithms": null,
+      "certificateFile": null
     },
     "linux": {
       "target": [
@@ -138,6 +140,7 @@
     "@types/history": "4.7.9",
     "@types/jest": "^27.0.2",
     "@types/lodash": "^4.14.184",
+    "@types/minimatch": "^6.0.0",
     "@types/node": "^16.11.6",
     "@types/react": "^17.0.33",
     "@types/react-dom": "^17.0.10",
@@ -146,7 +149,8 @@
     "@types/react-test-renderer": "^17.0.1",
     "@types/terser-webpack-plugin": "^5.0.4",
     "@types/webpack-env": "^1.16.3",
-    "@typescript-eslint/eslint-plugin": "^5.2.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
     "autoprefixer": "^10.4.0",
     "browserslist-config-erb": "^0.0.3",
     "chalk": "^4.1.2",
@@ -174,6 +178,7 @@
     "eslint-plugin-react": "^7.26.1",
     "eslint-plugin-react-hooks": "^4.2.0",
     "file-loader": "^6.2.0",
+    "foreach": "file:local_modules/foreach",
     "html-webpack-plugin": "^5.5.0",
     "husky": "7.0.4",
     "identity-obj-proxy": "^3.0.0",
@@ -192,7 +197,6 @@
     "sass-loader": "^12.3.0",
     "style-loader": "^3.3.1",
     "tailwindcss": "^2.2.19",
-    "terser-webpack-plugin": "^5.2.4",
     "ts-jest": "^27.0.7",
     "ts-loader": "^9.2.6",
     "ts-node": "10.8.1",
@@ -204,6 +208,21 @@
     "webpack-cli": "^4.9.1",
     "webpack-dev-server": "^4.7.3",
     "webpack-merge": "^5.8.0"
+  },
+  "overrides": {
+    "cheerio": "1.0.0-rc.12",
+    "@testing-library/jest-dom": {
+      "cheerio": "1.0.0-rc.12"
+    },
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "@typescript-eslint/scope-manager": "^5.62.0",
+    "@typescript-eslint/type-utils": "^5.62.0",
+    "@typescript-eslint/utils": "^5.62.0",
+    "@typescript-eslint/visitor-keys": "^5.62.0",
+    "@typescript-eslint/types": "^5.62.0",
+    "@typescript-eslint/tyEpescript-estree": "^5.62.0",
+    "ts-api-utils": "^0.0.3"
   },
   "dependencies": {
     "@electron/remote": "^2.0.4",
@@ -227,6 +246,7 @@
     "globaloffensive": "^3.0.1",
     "history": "4.x.x",
     "lodash": "^4.17.21",
+    "p-queue": "^6.6.2",
     "react": "^17.0.2",
     "react-beautiful-dnd": "^13.1.0",
     "react-chartjs-2": "^4.2.0",

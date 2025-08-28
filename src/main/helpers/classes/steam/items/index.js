@@ -1,21 +1,37 @@
 const fs = require('fs');
+const path = require('path');
 const VDF = require('@node-steam/vdf');
 const axios = require('axios');
 
+// Updated to CS2 repo paths
 const itemsLink =
-  'https://raw.githubusercontent.com/SteamDatabase/GameTracking-CSGO/master/csgo/scripts/items/items_game.txt';
+  'https://raw.githubusercontent.com/SteamDatabase/GameTracking-CS2/master/game/csgo/pak01_dir/scripts/items/items_game.txt';
 const translationsLink =
-  'https://raw.githubusercontent.com/SteamDatabase/GameTracking-CSGO/master/csgo/resource/csgo_english.txt';
+  'https://raw.githubusercontent.com/SteamDatabase/GameTracking-CS2/master/game/csgo/pak01_dir/resource/csgo_english.txt';
+
+// Ensure backup directory exists relative to this file
+const backupDir = path.join(__dirname, 'itemsBackupFiles');
+if (!fs.existsSync(backupDir)) {
+  fs.mkdirSync(backupDir, { recursive: true });
+}
 
 function fileCatcher(endNote) {
   return `${csgo_install_directory}${endNote}`;
 }
 
 async function fileGetError(items) {
-  let csgoEnglish = require('./itemsBackupFiles/csgo_english.json');
-  items.setTranslations(csgoEnglish, 'Error');
-  let itemsGame = require('./itemsBackupFiles/items_game.json');
-  items.setCSGOItems(itemsGame);
+  try {
+    const csgoEnglishData = fs.readFileSync(path.join(backupDir, 'csgo_english.json'), 'utf8');
+    const csgoEnglish = JSON.parse(csgoEnglishData);
+    items.setTranslations(csgoEnglish, 'Error');
+
+    const itemsGameData = fs.readFileSync(path.join(backupDir, 'items_game.json'), 'utf8');
+    const itemsGame = JSON.parse(itemsGameData);
+    items.setCSGOItems(itemsGame);
+  } catch (err) {
+    console.log('No backup files found or error loading backups:', err);
+    // Do not set anything; remain empty if no backups
+  }
 }
 
 async function getTranslations(items) {
@@ -37,8 +53,8 @@ async function getTranslations(items) {
     returnValue['stickerkit_cs20_boost_holo'];
     items.setTranslations(returnValue, 'normal');
   } catch (err) {
-    console.log('Error occurred during translation parsing');
-    fileGetError(items);
+    console.log('Error occurred during translation parsing:', err);
+    await fileGetError(items);
   }
 }
 
@@ -86,12 +102,12 @@ async function updateItems(items) {
 
       return dict_to_write;
     });
-    // Validate data
+    // Validate data (updated for CS2; add more if new keys fail)
     returnValue['items'][1209];
     items.setCSGOItems(returnValue);
   } catch (err) {
-    console.log('Error occurred during items parsing');
-    fileGetError(items);
+    console.log('Error occurred during items parsing:', err);
+    await fileGetError(items);
   }
 }
 
@@ -99,19 +115,22 @@ class items {
   translation = {};
   csgoItems = {};
   constructor() {
-    fileGetError(this);
+    // Do not load backups initially; fetch first
     getTranslations(this);
     updateItems(this);
   }
 
   setCSGOItems(value) {
     this.csgoItems = value;
+    // Save fresh parsed data as backup on success
+    fs.writeFileSync(path.join(backupDir, 'items_game.json'), JSON.stringify(value, null, 2));
   }
   setTranslations(value, commandFrom) {
     console.log(commandFrom);
     this.translation = value;
+    // Save fresh parsed data as backup on success
+    fs.writeFileSync(path.join(backupDir, 'csgo_english.json'), JSON.stringify(value, null, 2));
   }
-
   handleError(callback, args) {
     try {
       return callback.apply(this, args);
