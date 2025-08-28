@@ -3,6 +3,8 @@ import fs = require('fs');
 import path = require('path');
 
 import axios from 'axios';
+import { currency } from './currency';
+import PQueue from 'p-queue';
 
 const EventEmitter = require('events');
 class MyEmitter extends EventEmitter {}
@@ -73,11 +75,14 @@ class runItems {
   currency;
   headers;
   prices;
+  queue;  // Global queue for rate limiting
 
   constructor(steamUser) {
     this.steamUser = steamUser;
     this.seenItems = {};
     this.packageToSend = {};
+    // Initialize global PQueue for all pricing requests
+    this.queue = new PQueue({ concurrency: 1, interval: 3000, intervalCap: 1 });  // Safe ~20/min to avoid 429
     // Load backup prices if file exists
     const pricesPath = path.join(backupDir, 'prices.json');
     try {
@@ -115,7 +120,9 @@ class runItems {
 
     // Get currency code from store (e.g., 1 for USD)
     let currencyCode: number = 1; // Default USD
+    let currentCurrency: string = 'USD'; // Default
     await getValue('pricing.currency').then((returnValue) => {
+      currentCurrency = returnValue || 'USD';
       // Find key by value in currencyCodes
       const foundKey = Object.keys(currencyCodes).find(key => currencyCodes[key] === returnValue);
       currencyCode = foundKey ? parseInt(foundKey, 10) : 1;
@@ -132,14 +139,15 @@ class runItems {
         // Clean prices (e.g., "€1,23" -> 1.23, handle comma as decimal)
         const cleanPrice = (str) => {
           if (!str) return 0;
-          // Remove currency symbol and spaces
-          str = str.replace(/[^\d.,-]/g, '').trim();
-          // Replace thousand '.' with '', decimal ',' to '.'
-          if (str.includes(',') && str.includes('.')) {
-            str = str.replace(/\./g, '').replace(',', '.');
-          } else if (str.includes(',')) {
-            str = str.replace(',', '.');
+          // Remove currency symbol
+          str = str.replace(/^[^\d]+/, '').trim().replace(/\s/g, '');  // Remove spaces after initial clean
+          const parts = str.split(/[, .]/);
+          if (parts.length > 1) {
+            const integer = parts.slice(0, -1).join('');
+            const decimal = parts[parts.length - 1];
+            str = integer + '.' + decimal;
           }
+          console.log('Parsed float: ', parseFloat(str))
           return parseFloat(str) || 0;
         };
         let pricingDict = {
@@ -154,7 +162,8 @@ class runItems {
           steam: {
             last_90d: pricingDict.steam_listing // Simplified; add more fields if needed
           },
-          timestamp: Date.now() // Add timestamp for freshness check
+          timestamp: Date.now(), // Add timestamp for freshness check
+          currency: currentCurrency  // Store the currency
         };
         itemRow['pricing'] = pricingDict;
         return itemRow;
@@ -185,7 +194,8 @@ class runItems {
     let cachedPrices = await getValue('pricing.cache') || {};
 
     const toQuery: any[] = []; // Explicit type to fix never[] inference
-    Array.from(uniques.values()).forEach(el => {
+    const currentCurrency = await getValue('pricing.currency');
+    for (const el of Array.from(uniques.values())) {
       let itemNamePricing = el.item_name.replaceAll(
         '(Holo/Foil)',
         '(Holo-Foil)'
@@ -198,20 +208,30 @@ class runItems {
       }
       const cached = this.prices[itemNamePricing];
       if (cached && cached.timestamp && (Date.now() - cached.timestamp) < 86400000) { // 1 day in ms
-        // Use fresh-enough backup
-        cachedPrices[itemNamePricing] = {
-          steam_listing: cached.steam?.last_90d || 0,
-        };
-        console.log('Used backup for', itemNamePricing);
+        if (cached.currency === currentCurrency) {
+          // Use as-is
+          cachedPrices[itemNamePricing] = {
+            steam_listing: cached.steam?.last_90d || 0,
+          };
+          console.log('Used backup for', itemNamePricing, 'in', currentCurrency);
+        } else {
+          // Convert to current currency using currency.tsx
+          const currencyClass = new currency();
+          const rate = (await currencyClass.getRate(currentCurrency)) as number;
+          const cachedRate = (await currencyClass.getRate(cached.currency)) as number;
+          const convertedPrice = (cached.steam?.last_90d / cachedRate * rate) || 0;
+          cachedPrices[itemNamePricing] = {
+            steam_listing: convertedPrice,
+          };
+          console.log('Converted backup for', itemNamePricing, 'from', cached.currency, 'to', currentCurrency);
+        }
       } else {
         toQuery.push(el); // Refetch if old or missing
       }
-    });
+    }
 
-    // Queue for batching: 3 concurrent, 5s throttle (adjust for ~12/min to avoid 429)
-    const { default: PQueue } = await import('p-queue'); // Dynamic import to fix ESM error
-    const queue = new PQueue({ concurrency: 3, interval: 5000, intervalCap: 1 });
-    const promises = toQuery.map(el => queue.add(async () => {
+    // Use global queue for batching
+    const promises = toQuery.map(el => this.queue.add(async () => {
       const priced = await this.makeSinglerequest(el);
       // Cache result
       let itemNamePricing = priced.item_name.replaceAll(
@@ -226,6 +246,7 @@ class runItems {
       }
       cachedPrices[itemNamePricing] = priced.pricing;
       await setValue('pricing.cache', cachedPrices);
+      console.log("pricing: ", priced.pricing)
       return priced;
     }));
 
@@ -259,7 +280,7 @@ class runItems {
       console.error('Error saving prices backup:', err);
     }
 
-    pricingEmitter.emit('result', itemRow);
+    pricingEmitter.emit('result', returnRows);
   }
 
   async handleItem(itemRow) {

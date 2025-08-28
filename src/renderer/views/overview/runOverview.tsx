@@ -71,6 +71,12 @@ function Content() {
     }
   });
 
+  console.log('CombinedInventory length:', inventory.combinedInventory.length);
+  inventory.combinedInventory.forEach(element => {
+    const itemPrice = PricingClass.getPrice(element);
+    console.log(`Item: ${element.item_name}, QTY: ${element.combined_QTY}, Price: ${itemPrice}, Subtotal: ${itemPrice * element.combined_QTY}`);
+  });
+  console.log('Calculated inventoryValue:', inventoryValue);
 
   return (
     <>
