@@ -95,12 +95,12 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "nombersDev",
+      "owner": "Credskiz",
       "repo": "casemove"
     }
   },
   "author": {
-    "name": "Nombers"
+    "name": "Nombers/Credskiz"
   },
   "jest": {
     "testURL": "http://localhost/",

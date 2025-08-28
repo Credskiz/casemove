@@ -119,8 +119,8 @@ class runItems {
     }
 
     // Get currency code from store (e.g., 1 for USD)
-    let currencyCode: number = 1; // Default USD
-    let currentCurrency: string = 'USD'; // Default
+    let currencyCode: number = 3; // Default USD
+    let currentCurrency: string = 'EUR'; // Default
     await getValue('pricing.currency').then((returnValue) => {
       currentCurrency = returnValue || 'USD';
       // Find key by value in currencyCodes
