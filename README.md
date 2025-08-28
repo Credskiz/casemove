@@ -4,7 +4,7 @@
 
 ----
 
-## Download Latest Version (Casemove 2.3.2)
+## Download Latest Version (Casemove 2.3.1)
 
 This is the latest stable version and can be downloaded from the [releases](https://github.com/nombersDev/casemove/releases) page, or directly from:
 
